@@ -1,5 +1,22 @@
-Uart.h : PL011 레지스터 구조체 정의. 메모리 주소로 접근 가능한 레지스터를 구조체로 추상화하여 작성함. 
+- Uart.h : PL011 레지스터 구조체 정의. 메모리 주소로 접근 가능한 레지스터를 구조체로 추상화하여 작성함. 
     - 이 구조체에 실제 메모리 주소를 지정하면 해당 메모리에 있는 데이터를 구조체 의 모양대로 읽어오게 됨.
-Regs.c : Uart 하드웨어를 제어할 수 있는 변수를 선언한다.
+- Uart.c : 공용 HalUART.h의 API를 RealViewPB하드웨어에 대한 코드로 작성한 파일이다. 
+- Regs.c : Uart 하드웨어를 제어할 수 있는 변수를 선언한다.
     - RealViewPB의 레지스터를 선언해서 모아 놓음.
     - 초기화하는 하드웨어의 레지스터 구조체와 베이스 주소를 연결해서 추가
+- Interrupt.h : GIC의 레지스터 구조체 정의. 크게 CPU Interface register와 Distributor register로 나뉜다. 
+- Interrupt.c : HalInterrupt.h의 API를 RealViewPB 하드웨어의 인터럽트 처리 방식을 작성한 파일이다. 
+    - Hal_interrupt_init() : GIC 레지스터와 핸들러 포인터를 초기화하는 함수이다.
+    - Hal_interrupt_enable(uint32_t interrupt_num) : interrupt_num에 해당하는 인터럽트를 활성화하는 함수이다.
+        - GIC는 인터럽트를 64개 관리할 수 있다. 그러므로 각각 32개씩 레지스터 두 개에 할당해 놓고 이름을 set Enalbe1과 SEt Enable2 레지스터라고 한다. 
+        - GicDist로 처리할 인터럽트를 활성화함.
+        - IRQ의 시작 번호는 32이므로, GIC는 각 레지서터의 개별 비트를 IRQ ID32번부터 IRQ ID95번에 연결한다.
+        - 원하는 비트 오프셋을 찾으려면, 할당된 IRQ번호에서 32를 빼야한다. 
+        - ex) UART는 IRQ ID = 44이므로, Set Enalbe1레지스터의 12번 비트에 UART 인터럽트가 연결된다. 
+        - ex) IRQ ID = 64번을 켜거나 끄고 싶다면 Set Enable2 레지스터의 0번 비트에 1을 써서 켜고, 0을 써서 끄면 된다.  
+    - Hal_interrupt_disable(uint32_t interrupt_num) : GicDist로 IRQ ID에 해당하는 인터럽트를 비활성화한다. 
+    - Hal_interrupt_register_handler(InterHdlr_fptr handler, uint32_t interrupt_num) : 핸들러 배열에 함수 포인터를 지정한다. IRQ ID번호를 기준으로 인터럽트 핸들러 등록.
+    - Hal_interrupt_run_register(void) : GicCpu가 인터럽트를 처리한다.
+        - GicCpu->Interruptack.bits.InterruptID; 로 현재 하드웨어에서 대기중인 인터럽트 IRQ 값을 읽어온다. 
+        - IRQ를 배열 인덱스로 활용해서 인터럽트 핸들러 함수 포인터를 바로 실행한다. 
+        - 인터럽트에 대한 처리가 끝나면, GicCpu에 해당 인터럽트에 대한 처리가 끝났다는걸 알려주기 위해 End of interrupt레지스터에 IRQ ID를 써넣어 준다. 
